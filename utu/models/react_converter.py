@@ -6,11 +6,11 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 
 import jinja2
-from agents import AgentOutputSchema, Handoff, ModelSettings, Tool, TResponseInputItem
+from agents import AgentOutputSchemaBase, Handoff, ModelSettings, Tool, TResponseInputItem
 
 # FIXME: change to ChatCompletionConverter
 from agents.models.chatcmpl_converter import Converter
-from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageToolCall
+from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageFunctionToolCall
 from openai.types.chat.chat_completion_message_tool_call import Function
 from openai.types.responses import (
     EasyInputMessageParam,
@@ -94,10 +94,10 @@ TEMPLATE_ACTION = r"""Action:
 class ConverterPreprocessInput:
     system_instructions: str | None
     input: str | list[TResponseInputItem]
+    model_settings: ModelSettings
     tools: list[Tool] = field(default_factory=list)
-    output_schema: AgentOutputSchema | None = None
+    output_schema: AgentOutputSchemaBase | None = None
     handoffs: list[Handoff] = field(default_factory=list)
-    model_settings: ModelSettings | None = None
 
 
 class ReactConverter:
@@ -124,7 +124,7 @@ class ReactConverter:
         converted_input = self._handle_input(input.system_instructions, input.input)
         converted_model_settings = self._handle_model_settings(input.model_settings)
         return ConverterPreprocessInput(
-            system_instructions=converted_sp, input=converted_input, model_settings=converted_model_settings
+            system_instructions=converted_sp, input=converted_input, model_settings=converted_model_settings, tools=input.tools, output_schema=input.output_schema, handoffs=input.handoffs
         )
 
     def _handle_sp(self, system_instructions: str | None, tools: list[Tool], handoffs: list[Handoff]) -> str | None:
@@ -172,7 +172,10 @@ class ReactConverter:
                 results.append(deepcopy(item))
         return results
 
-    def _handle_model_settings(self, model_settings: ModelSettings) -> ModelSettings:
+    def _handle_model_settings(self, model_settings: ModelSettings | None) -> ModelSettings:
+        if model_settings is None:
+            # This should not happen since get_response passes ModelSettings
+            raise ValueError("model_settings cannot be None")
         if not model_settings.extra_args:
             model_settings.extra_args = {}
         model_settings.extra_args["stop"] = [self.observation_str]  # add stop tokens
@@ -212,7 +215,7 @@ class ReactConverter:
             message = ChatCompletionMessage(
                 role="assistant",
                 # TODO: also parse "Think" into content
-                tool_calls=[ChatCompletionMessageToolCall(function=function, id="FAKE_ID", type="function")],
+                tool_calls=[ChatCompletionMessageFunctionToolCall(function=function, id="FAKE_ID", type="function")],
             )
             return Converter.message_to_output_items(message)
         else:

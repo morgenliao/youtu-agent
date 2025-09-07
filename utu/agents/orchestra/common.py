@@ -1,96 +1,92 @@
-from dataclasses import dataclass, field
-from typing import Literal
+import asyncio
+from collections.abc import AsyncIterator
+from dataclasses import asdict, dataclass, field
+from typing import Any
 
-from agents import RunResultStreaming
+from agents import RunResult, StreamEvent
+from agents._run_impl import QueueCompleteSentinel
 
-from ..common import DataClassWithStreamEvents, TaskRecorder
+from ...utils import AgentsUtils, get_logger
 
-
-@dataclass
-class AgentInfo:
-    """Subagent information (for planner)"""
-
-    name: str
-    desc: str
-    strengths: str
-    weaknesses: str
+logger = get_logger(__name__)
 
 
 @dataclass
-class Subtask:
-    agent_name: str
-    task: str
-    completed: bool | None = None
+class DataClassWithStreamEvents:
+    _is_complete: bool = False
+    _stored_exception: Exception | None = field(default=None, repr=False)
+
+    # Queues that the background run_loop writes to
+    _event_queue: asyncio.Queue[StreamEvent] = field(default_factory=asyncio.Queue, repr=False)
+    # Store the asyncio tasks that we're waiting on
+    _run_impl_task: asyncio.Task[Any] | None = field(default=None, repr=False)
+
+    async def stream_events(self) -> AsyncIterator[StreamEvent]:
+        while True:
+            self._check_errors()
+            if self._stored_exception:
+                logger.debug("Breaking due to stored exception")
+                self._is_complete = True
+                break
+
+            if self._is_complete and self._event_queue.empty():
+                break
+            try:
+                item = await self._event_queue.get()
+            except asyncio.CancelledError:
+                break
+            if isinstance(item, QueueCompleteSentinel):
+                self._event_queue.task_done()
+                # Check for errors, in case the queue was completed due to an exception
+                self._check_errors()
+                break
+
+            yield item
+            self._event_queue.task_done()
+
+        self._cleanup_tasks()
+
+    def _cleanup_tasks(self):
+        if self._run_impl_task and not self._run_impl_task.done():
+            self._run_impl_task.cancel()
+
+    def _check_errors(self):
+        # Check the tasks for any exceptions
+        if self._run_impl_task and self._run_impl_task.done():
+            run_impl_exc = self._run_impl_task.exception()
+            if run_impl_exc and isinstance(run_impl_exc, Exception):
+                # if isinstance(run_impl_exc, AgentsException) and run_impl_exc.run_data is None:
+                #     run_impl_exc.run_data = self._create_error_details()
+                self._stored_exception = run_impl_exc
+
+    def to_dict(self):
+        return {k: v for k, v in asdict(self).items() if not k.startswith("_")}
 
 
 @dataclass
-class CreatePlanResult(DataClassWithStreamEvents):
-    analysis: str = ""
-    todo: list[Subtask] = field(default_factory=list)
-
-    @property
-    def trajectory(self):
-        todos_str = []
-        for i, subtask in enumerate(self.todo, 1):
-            todos_str.append(f"{i}. {subtask.task} ({subtask.agent_name})")
-        todos_str = "\n".join(todos_str)
-        return {
-            "agent": "planner",
-            "trajectory": [
-                {"role": "assistant", "content": self.analysis},
-                {"role": "assistant", "content": todos_str},
-            ],
-        }
-
-
-@dataclass
-class WorkerResult(DataClassWithStreamEvents):
+class TaskRecorder(DataClassWithStreamEvents):
     task: str = ""
-    output: str = ""
-    trajectory: dict = field(default_factory=dict)
+    trace_id: str = ""
 
-    stream: RunResultStreaming | None = None
+    final_output: str = ""
+    trajectories: list = field(default_factory=list)  # record agent trajectories
+    raw_run_results: list[RunResult] = field(default_factory=list)
 
+    additional_infos: dict = field(default_factory=dict)
 
-@dataclass
-class AnalysisResult(DataClassWithStreamEvents):
-    output: str = ""
+    def add_run_result(self, run_result: RunResult, agent_name: str | None = None):
+        self.raw_run_results.append(run_result)
+        self.trajectories.append(AgentsUtils.get_trajectory_from_agent_result(run_result))
 
-    @property
-    def trajectory(self):
-        return {"agent": "analysis", "trajectory": [{"role": "assistant", "content": self.output}]}
+    def get_run_result(self) -> RunResult:
+        return self.raw_run_results[-1]
 
+    def set_final_output(self, final_output: str):
+        self.final_output = final_output
 
-@dataclass
-class OrchestraTaskRecorder(TaskRecorder):
-    plan: CreatePlanResult = field(default=None)
-    task_records: list[WorkerResult] = field(default_factory=list)
+    # set additional infos. NOT USED NOW!
+    def set_attr(self, key: str, value: Any):
+        self.additional_infos[key] = value
 
-    def set_plan(self, plan: CreatePlanResult):
-        self.plan = plan
-        self.trajectories.append(plan.trajectory)
-
-    def add_worker_result(self, result: WorkerResult):
-        self.task_records.append(result)
-        self.trajectories.append(result.trajectory)
-
-    def add_reporter_result(self, result: AnalysisResult):
-        self.trajectories.append(result.trajectory)
-
-    def get_plan_str(self) -> str:
-        return "\n".join([f"{i}. {t.task}" for i, t in enumerate(self.plan.todo, 1)])
-
-    def get_trajectory_str(self) -> str:
-        return "\n".join(
-            [
-                f"<subtask>{t.task}</subtask>\n<output>{r.output}</output>"
-                for i, (r, t) in enumerate(zip(self.task_records, self.plan.todo, strict=False), 1)
-            ]
-        )
-
-
-@dataclass
-class OrchestraStreamEvent:
-    name: Literal["plan", "worker", "report"]
-    item: CreatePlanResult | WorkerResult | AnalysisResult
-    type: Literal["orchestra_stream_event"] = "orchestra_stream_event"
+    def get_attr(self, key: str) -> Any:
+        return self.additional_infos.get(key)

@@ -1,34 +1,36 @@
 # utu_agent_exp_analysis
 
-Frontend pages for utu-agent `exp_analysis`
+utu-agent `exp_analysis` 的前端页面
 
-## Installation
-1. Set env of log sql server
+## 安装
+
+1. 设置日志 SQL 服务器的环境变量
 ```bash
 cd frontend/exp_analysis
-cp .env.example .env  # config necessary keys...
+cp .env.example .env  # 配置必要的密钥...
 source .env
 ```
 
-2. Install npm packages
+2. 安装 npm 包
 ```bash
 npm install --legacy-peer-deps
 ```
 
-The reason for using the `--legacy-peer-deps` option is that the latest version of the `react-json-view` installation package is `1.21.3`. When installed with `react` version `19.0.0`, a warning will be generated. The actual test can be installed and used normally.
+使用 `--legacy-peer-deps` 选项的原因是 `react-json-view` 安装包的最新版本是 `1.21.3`。当与 `react` 版本 `19.0.0` 一起安装时，会生成警告。实际测试可以正常安装和使用。
 
-## Start using
-1. Build your project
+## 开始使用
+
+1. 构建项目
 ```bash
 npm run build
 ```
 
-2. Start your server
+2. 启动服务器
 ```bash
 npm run start
 ```
 
-Once you start your project, the server will be accessible via a browser using your server's IP address and the default port `3000`. If you want to change the default port, you can modify the port in the `start` command in the `script` section of `package.json`.
+启动项目后，您可以通过浏览器使用服务器的 IP 地址和默认端口 `3000` 访问服务器。如果要更改默认端口，可以在 `package.json` 的 `script` 部分的 `start` 命令中修改端口。
 ```json
 {
   "scripts": {
@@ -42,8 +44,8 @@ Once you start your project, the server will be accessible via a browser using y
 }
 ```
 
-3. Test database connection
+3. 测试数据库连接
 ```bash
 npm run test:db
 ```
-You can call the above command to test whether your database service can be accessed normally. Assuming that the database service has been configured, you can get the first data query in the database by the following command.
+您可以调用上述命令来测试数据库服务是否可以正常访问。假设数据库服务已配置，您可以通过以下命令获取数据库中的第一个数据查询。

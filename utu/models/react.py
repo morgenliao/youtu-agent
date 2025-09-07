@@ -5,7 +5,6 @@ doc: https://doc.weixin.qq.com/doc/w3_AcMATAZtAPICNRgjuRgV7TQ2phu2p?scode=AJEAIQ
 from collections.abc import AsyncIterator
 
 from agents import (
-    AgentOutputSchema,
     AgentOutputSchemaBase,
     Handoff,
     ModelResponse,
@@ -63,7 +62,7 @@ class ReactModel(OpenAIChatCompletionsModel):
         prompt: ResponsePromptParam | None = None,
     ) -> ModelResponse:
         preprocess_input = ConverterPreprocessInput(
-            system_instructions, input, tools, output_schema, handoffs, model_settings
+            system_instructions, input, model_settings, tools, output_schema, handoffs
         )
         preprocess_input = converter.preprocess(preprocess_input)
         model_response = await super().get_response(
@@ -86,7 +85,7 @@ class ReactModel(OpenAIChatCompletionsModel):
         input: str | list[TResponseInputItem],
         model_settings: ModelSettings,
         tools: list[Tool],
-        output_schema: AgentOutputSchema | None,
+        output_schema: AgentOutputSchemaBase | None,
         handoffs: list[Handoff],
         tracing: ModelTracing,
         previous_response_id: str | None,
@@ -99,7 +98,7 @@ class ReactModel(OpenAIChatCompletionsModel):
         Here, we only yield the final event
         """
         preprocess_input = ConverterPreprocessInput(
-            system_instructions, input, tools, output_schema, handoffs, model_settings
+            system_instructions, input, model_settings, tools, output_schema, handoffs
         )
         preprocess_input = converter.preprocess(preprocess_input)
         content = ""
