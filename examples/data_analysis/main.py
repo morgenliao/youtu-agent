@@ -6,8 +6,17 @@ from examples.data_analysis.planner import DAPlannerAgent
 from utu.agents import OrchestraAgent
 from utu.config import ConfigLoader
 
+"""数据分析示例主模块。
+
+此模块演示如何使用 DAPlannerAgent 和 OrchestraAgent 进行数据分析任务。
+"""
+
 
 async def main():
+    """主函数。
+
+    设置代理，运行数据分析任务，并生成 HTML 报告。
+    """
     # Set up the agent
     config = ConfigLoader.load_agent_config("examples/data_analysis")
     config.planner_config["examples_path"] = pathlib.Path(__file__).parent / "planner_examples_data.json"
