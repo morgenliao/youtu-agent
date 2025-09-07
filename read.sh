@@ -1,0 +1,1 @@
+source ~/.bashrc && conda activate envi_ml && env PYTHONUNBUFFERED=1 mkdocs serve

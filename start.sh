@@ -1,0 +1,1 @@
+source ~/.bashrc && conda activate envi_312 && env PYTHONUNBUFFERED=1 python scripts/cli_chat.py --stream --config default

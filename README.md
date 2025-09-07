@@ -190,6 +190,17 @@ agent:
   instructions: "You are a helpful assistant that can search the web."
 ```
 
+```yaml
+默认:
+  - /model/base
+  - /tools/search@toolkits.search
+  - _self_
+
+智能体:
+  名称: simple-tool-agent
+  指导: "You are a helpful assistant that can search the web."
+```
+
 你可以通过以下命令启动交互式 CLI 聊天机器人：
 
 ```bash
@@ -247,22 +258,3 @@ python scripts/run_eval.py --config_name ww --exp_id <your_exp_id> --dataset Web
 - [openai-agents](https://github.com/openai/openai-agents-python)
 - [mkdocs-material](https://github.com/squidfunk/mkdocs-material)
 - [model-context-protocol](https://github.com/modelcontextprotocol/python-sdk)
-
-## 📚 引用
-
-如果您觉得这项工作有帮助，请考虑引用：
-
-```bibtex
-@misc{youtu-agent-2025,
-  title={Youtu-agent: A Simple yet Powerful Agent Framework},
-  author={Tencent Youtu Lab},
-  year={2025},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/TencentCloudADP/youtu-agent}},
-}
-```
-
-## ⭐ Star History
-
-![Star History Chart](https://api.star-history.com/svg?repos=TencentCloudADP/youtu-agent&type=Date)
